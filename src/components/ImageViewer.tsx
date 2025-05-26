@@ -8,8 +8,7 @@
   type="file"
   accept="image/*"
   className="hidden"
-  onChange={handleImageUpload}
-/>
+  onChange={handleImageUpload}/>
 
 
 import React, { useRef, useCallback } from 'react';
