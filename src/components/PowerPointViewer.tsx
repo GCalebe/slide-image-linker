@@ -1,9 +1,25 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Upload, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import pptxParser from 'pptx-parser';
+import { Progress } from '@/components/ui/progress';
+
+const fetchSlide = async (pptxId: string, slideNum: number) => {
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/slide/${pptxId}/${slideNum}`);
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const meta = res.headers.get("X-Shape-Meta") || "[]";
+    const url = URL.createObjectURL(blob);
+    slides[slideNum - 1] = { url, meta: JSON.parse(meta) };
+    setCurrentSlideIndex(slideNum - 1);
+  } catch (e) {
+    console.error(e);
+  }
+};
 
 const PowerPointViewer = () => {
   const {
@@ -15,12 +31,15 @@ const PowerPointViewer = () => {
     setCurrentSlideIndex,
     setSelectedShapeId,
     addShape,
-    setZoomLevel
+    setZoomLevel,
+    setSlides
   } = useSlideMatcherStore();
   
   const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
   const currentSlide = slides[currentSlideIndex];
+  const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleShapeClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!currentSlide) return;
@@ -70,23 +89,7 @@ const PowerPointViewer = () => {
     return 'border-blue-300';
   };
 
-const fetchSlide = async (pptxId: string, slideNum: number) => {
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/slide/${pptxId}/${slideNum}`);
-    if (!res.ok) throw new Error(await res.text());
-    const blob = await res.blob();
-    const meta = res.headers.get("X-Shape-Meta") || "[]";
-    const url = URL.createObjectURL(blob);
-    // Armazene no Zustand
-    slides[slideNum - 1] = { url, meta: JSON.parse(meta) };
-    setCurrentSlideIndex(slideNum - 1);
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-  
-const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
   const file = event.target.files?.[0];
   if (!file) return;
   const form = new FormData();
@@ -98,29 +101,19 @@ const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     });
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
-    toast({
-      title: "Upload concluído",
-      description: "pptx_id: " + data.pptx_id,
-    });
-    // Aqui você pode chamar outra ação do Zustand para carregar slides
+    toast({ title: "Upload concluído", description: "pptx_id: " + data.pptx_id });
     fetchSlide(data.pptx_id, 1);
   } catch (err: any) {
-    console.error(err);
-    toast({
-      title: "Erro no upload",
-      description: err.message,
-      variant: "destructive",
-    });
+    toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
   }
 };
-
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <div className="p-4 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">PowerPoint Viewer</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Visualizador de PowerPoint</h2>
           <div className="flex items-center gap-2">
             <input
               type="file"
@@ -130,11 +123,28 @@ const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
               id="ppt-upload"
             />
             <label htmlFor="ppt-upload">
-              <Button variant="outline" size="sm" className="cursor-pointer">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="cursor-pointer"
+                disabled={isLoading}
+              >
                 <Upload className="w-4 h-4 mr-2" />
-                Upload PPT
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  'Fazer upload de PPTX'
+                )}
               </Button>
             </label>
+            {isLoading && (
+              <div className="mt-2">
+                <Progress value={uploadProgress} />
+              </div>
+            )}
             <span className="text-sm text-gray-600">
               Zoom: {Math.round(zoomLevel * 100)}%
             </span>

@@ -1,3 +1,16 @@
+<label htmlFor="image-upload">
+  <Button variant="outline" className="mb-2">
+    <Upload className="w-4 h-4 mr-2" /> Upload Imagem
+  </Button>
+</label>
+<input
+  id="image-upload"
+  type="file"
+  accept="image/*"
+  className="hidden"
+  onChange={handleImageUpload}
+/>
+
 
 import React, { useRef, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -29,8 +42,8 @@ const ImageViewer = () => {
       if (file.type.startsWith('image/')) {
         addImage(file);
         toast({
-          title: "Image Uploaded",
-          description: `Added ${file.name}`,
+          title: "Imagem Carregada",
+          description: `Adicionada ${file.name}`,
         });
       }
     });
@@ -67,8 +80,8 @@ const ImageViewer = () => {
     setSelectedImageElementId(newElementId);
     
     toast({
-      title: "OCR Detection",
-      description: `Created ${newElementId}`,
+      title: "Detecção de OCR",
+      description: `Criado ${newElementId}`,
     });
   };
 
@@ -98,7 +111,7 @@ const ImageViewer = () => {
       {/* Header */}
       <div className="p-4 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">Image Viewer</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Visualizador de Imagens</h2>
           <span className="text-sm text-gray-600">
             Zoom: {Math.round(zoomLevel * 100)}%
           </span>
@@ -176,13 +189,13 @@ const ImageViewer = () => {
             <div className="text-center text-gray-500">
               <ImageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
               {isDragActive ? (
-                <p>Drop images here...</p>
+                <p>Solte as imagens aqui...</p>
               ) : (
                 <div>
-                  <p className="mb-2">Drag & drop images here</p>
+                          <p className="mb-2">Arraste e solte imagens aqui</p>
                   <Button variant="outline" size="sm">
                     <Upload className="w-4 h-4 mr-2" />
-                    Or click to select
+                    Ou clique para selecionar
                   </Button>
                 </div>
               )}

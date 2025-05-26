@@ -44,8 +44,8 @@ const AssociationPanel = () => {
       
       if (existingAssociation) {
         toast({
-          title: "Association exists",
-          description: "This mapping already exists",
+          title: "Associação existente",
+          description: "Esta mapeamento já existe",
           variant: "destructive"
         });
         return;
@@ -58,47 +58,51 @@ const AssociationPanel = () => {
       });
       
       toast({
-        title: "Association created",
-        description: `Linked ${selectedShapeId} ↔ ${selectedImageElementId}`,
+        title: "Associação criada",
+        description: `Associado ${selectedShapeId} ↔ ${selectedImageElementId}`,
       });
       
       saveToLocalStorage();
     } else {
       toast({
-        title: "Select elements",
-        description: "Please select both a shape and an image element",
+        title: "Selecione elementos",
+        description: "Por favor, selecione tanto uma forma quanto um elemento de imagem",
         variant: "destructive"
       });
     }
   };
 
   const handleExport = () => {
+  toast({ title: 'Exportação', description: 'Arquivo JSON gerado' });
     const data = exportData();
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'slide-matcher-mappings.json';
+    a.download = 'mapeamentos-slide-matcher.json';
     a.click();
     URL.revokeObjectURL(url);
     
     toast({
-      title: "Export complete",
-      description: "Mappings exported successfully",
+      title: "Exportação concluída",
+      description: "Mapeamentos exportados com sucesso", 
     });
   };
 
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  import { toast } from "@/components/ui/use-toast";
+
+const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
+    toast({ title: 'Importação concluída', description: file.name });
         const content = e.target?.result as string;
         importData(content);
         saveToLocalStorage();
         toast({
-          title: "Import complete",
-          description: "Mappings imported successfully",
+          title: "Importação concluída",
+          description: "Mapeamentos importados com sucesso", 
         });
       };
       reader.readAsText(file);
@@ -108,23 +112,23 @@ const AssociationPanel = () => {
   const generatePowerPoint = async () => {
     if (associations.length === 0) {
       toast({
-        title: "No mappings",
-        description: "Create some associations first",
+        title: "Sem mapeamentos",
+        description: "Crie algumas associações primeiro",
         variant: "destructive"
       });
       return;
     }
 
     toast({
-      title: "Generating PowerPoint",
-      description: "Processing mappings and applying changes...",
+      title: "Gerando PowerPoint",
+      description: "Processando mapeamentos e aplicando alterações...", 
     });
 
     // In a real implementation, this would call the backend API
     setTimeout(() => {
       toast({
-        title: "PowerPoint ready",
-        description: "Download will start automatically",
+        title: "PowerPoint pronto",
+        description: "Download iniciará automaticamente", 
       });
     }, 2000);
   };
@@ -158,7 +162,7 @@ const AssociationPanel = () => {
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Associations</h3>
+          <h3 className="text-lg font-semibold text-gray-800">Associações</h3>
           <Button
             variant="ghost"
             size="sm"
@@ -172,13 +176,13 @@ const AssociationPanel = () => {
         {/* Selected elements */}
         <div className="space-y-2 mb-4">
           <div className="text-sm">
-            <span className="text-gray-600">Shape: </span>
+            <span className="text-gray-600">Forma: </span>
             <Badge variant={selectedShapeId ? "default" : "secondary"} className="text-xs">
               {selectedShapeId || "None selected"}
             </Badge>
           </div>
           <div className="text-sm">
-            <span className="text-gray-600">Element: </span>
+            <span className="text-gray-600">Elemento: </span>
             <Badge variant={selectedImageElementId ? "default" : "secondary"} className="text-xs">
               {selectedImageElementId || "None selected"}
             </Badge>
@@ -193,7 +197,7 @@ const AssociationPanel = () => {
           size="sm"
         >
           <Link className="w-4 h-4 mr-2" />
-          Create Association
+          Criar Associação
         </Button>
         
         {/* Action buttons */}
