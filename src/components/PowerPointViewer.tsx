@@ -70,6 +70,22 @@ const PowerPointViewer = () => {
     return 'border-blue-300';
   };
 
+const fetchSlide = async (pptxId: string, slideNum: number) => {
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/slide/${pptxId}/${slideNum}`);
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const meta = res.headers.get("X-Shape-Meta") || "[]";
+    const url = URL.createObjectURL(blob);
+    // Armazene no Zustand
+    slides[slideNum - 1] = { url, meta: JSON.parse(meta) };
+    setCurrentSlideIndex(slideNum - 1);
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+  
 const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
   const file = event.target.files?.[0];
   if (!file) return;
