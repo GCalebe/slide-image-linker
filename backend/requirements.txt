@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+python-pptx
+pillow
+python-multipart
+openrouter
+python-dotenv
