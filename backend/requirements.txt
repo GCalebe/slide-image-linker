@@ -1,7 +1,7 @@
 fastapi
 uvicorn[standard]
 python-pptx
-pillow
+Pillow
 python-multipart
-openrouter
 python-dotenv
+httpx

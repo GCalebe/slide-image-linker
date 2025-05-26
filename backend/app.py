@@ -1,20 +1,24 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
+
+import io, json, os, tempfile
 from uuid import uuid4
 from pathlib import Path
 from typing import Dict, List
-import io, json, os, tempfile
+
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 from services.pptx_service import extract_slide_png, apply_mappings_to_pptx
 from services.vision_service import detect_boxes_ocr
 
+load_dotenv()  # para desenvolvimento local (.env)
+
 TEMP_DIR = Path(tempfile.gettempdir()) / "slide_matcher"
 TEMP_DIR.mkdir(exist_ok=True)
 
-app = FastAPI(title="Slide‑Matcher Backend", version="0.1.0")
+app = FastAPI(title="Slide‑Matcher Backend", version="0.2.0")
 
-# CORS (ajuste origin conforme seu front em prod)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,10 +31,10 @@ pptx_store: Dict[str, Path] = {}
 image_store: Dict[str, Path] = {}
 mappings_store: Dict[str, List[dict]] = {}
 
-# ----------- PPTX -----------
+# ---------- PPTX ----------
 @app.post("/api/upload-pptx")
 async def upload_pptx(file: UploadFile = File(...)):
-    if not file.filename.endswith(".pptx"):
+    if not file.filename.lower().endswith(".pptx"):
         raise HTTPException(status_code=400, detail="Apenas arquivos .pptx")
     pptx_id = str(uuid4())[:8]
     dest = TEMP_DIR / f"{pptx_id}.pptx"
@@ -47,7 +51,7 @@ def get_slide(pptx_id: str, n: int):
     headers = {"X-Shape-Meta": json.dumps(shapes_meta)}
     return StreamingResponse(io.BytesIO(png_bytes), media_type="image/png", headers=headers)
 
-# ----------- Imagens Externas -----------
+# ---------- Imagens externas ----------
 @app.post("/api/upload-image")
 async def upload_image(file: UploadFile = File(...)):
     img_id = str(uuid4())[:8]
@@ -65,18 +69,25 @@ def get_image(img_id: str):
     with image_store[img_id].open("rb") as f:
         img_bytes = f.read()
     headers = {"X-Box-Meta": json.dumps(boxes)}
-    return StreamingResponse(io.BytesIO(img_bytes), headers=headers, media_type="image/png")
+    return StreamingResponse(io.BytesIO(img_bytes), media_type="image/png", headers=headers)
 
-# ----------- Mapeamentos -----------
+# ---------- Mapeamentos ----------
 @app.post("/api/mappings/{pptx_id}")
 async def save_mappings(pptx_id: str, data: List[dict]):
     mappings_store[pptx_id] = data
     return {"status": "ok"}
 
 @app.post("/api/apply-mappings/{pptx_id}")
-def apply_mappings(pptx_id: str):
+def apply_mappings_route(pptx_id: str):
     if pptx_id not in pptx_store:
         raise HTTPException(status_code=404, detail="pptx_id não encontrado")
     mappings = mappings_store.get(pptx_id, [])
     output_bytes = apply_mappings_to_pptx(pptx_store[pptx_id], mappings)
-    return StreamingResponse(io.BytesIO(output_bytes), media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation", headers={"Content-Disposition": f"attachment; filename={pptx_id}_updated.pptx"})
+    headers = {
+        "Content-Disposition": f"attachment; filename={pptx_id}_updated.pptx"
+    }
+    return StreamingResponse(
+        io.BytesIO(output_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers=headers,
+    )
