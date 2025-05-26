@@ -3,12 +3,12 @@
     <Upload className="w-4 h-4 mr-2" /> Upload Imagem
   </Button>
 </label>
-  </input
+<input
   id="image-upload"
   type="file"
   accept="image/*"
   className="hidden"
-  onChange={handleImageUpload}>
+  onChange={handleImageUpload}/>
 
 
 import React, { useRef, useCallback } from 'react';
