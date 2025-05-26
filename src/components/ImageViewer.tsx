@@ -1,3 +1,17 @@
+<label htmlFor="image-upload">
+  <Button variant="outline" className="mb-2">
+    <Upload className="w-4 h-4 mr-2" /> Upload Imagem
+  </Button>
+</label>
+<input
+  id="image-upload"
+  type="file"
+  accept="image/*"
+  className="hidden"
+  onChange={handleImageUpload}
+/>
+
+
 import React, { useRef, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
@@ -23,13 +37,57 @@ const ImageViewer = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const currentImage = images[currentImageIndex];
 
+  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Erro",
+        description: "Por favor, selecione uma imagem válida",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      addImage(file);
+      toast({
+        title: "Imagem Carregada",
+        description: `Adicionada ${file.name}`,
+      });
+    } catch (error) {
+      console.error('Erro ao carregar imagem:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar a imagem",
+        variant: "destructive"
+      });
+    }
+  }, [addImage, toast]);
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     acceptedFiles.forEach((file) => {
       if (file.type.startsWith('image/')) {
-        addImage(file);
+        try {
+          addImage(file);
+          toast({
+            title: "Imagem Carregada",
+            description: `Adicionada ${file.name}`,
+          });
+        } catch (error) {
+          console.error('Erro ao carregar imagem:', error);
+          toast({
+            title: "Erro",
+            description: "Falha ao carregar a imagem",
+            variant: "destructive"
+          });
+        }
+      } else {
         toast({
-          title: "Imagem Carregada",
-          description: `Adicionada ${file.name}`,
+          title: "Erro",
+          description: "Arquivo não é uma imagem válida",
+          variant: "destructive"
         });
       }
     });
@@ -93,21 +151,6 @@ const ImageViewer = () => {
   };
 
   return (
-<div className="mb-4">
-  <label htmlFor="image-upload">
-    <Button variant="outline" className="mb-2">
-      <Upload className="w-4 h-4 mr-2" /> Upload Imagem
-    </Button>
-  </label>
-  <input
-    id="image-upload"
-    type="file"
-    accept="image/*"
-    className="hidden"
-    onChange={handleImageUpload}
-  />
-</div>
-
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <div className="p-4 bg-white border-b border-gray-200 shadow-sm">

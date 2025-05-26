@@ -14,6 +14,7 @@ import {
   FileDown
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useEffect } from 'react';
 
 const AssociationPanel = () => {
   const {
@@ -34,6 +35,10 @@ const AssociationPanel = () => {
   } = useSlideMatcherStore();
   
   const { toast } = useToast();
+  
+  useEffect(() => {
+    loadFromLocalStorage();
+  }, [loadFromLocalStorage]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
   const createAssociation = () => {
@@ -93,12 +98,42 @@ const AssociationPanel = () => {
 
 const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-    toast({ title: 'Importação concluída', description: file.name });
+    if (!file) return;
+
+    if (!file.name.endsWith('.json')) {
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione um arquivo JSON',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
         const content = e.target?.result as string;
         importData(content);
+        toast({
+          title: 'Importação concluída',
+          description: `Carregado ${file.name}`
+        });
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: 'Falha ao importar dados',
+          variant: 'destructive'
+        });
+      }
+    };
+    reader.onerror = () => {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao ler o arquivo',
+        variant: 'destructive'
+      });
+    };
+    reader.readAsText(file);
         saveToLocalStorage();
         toast({
           title: "Importação concluída",

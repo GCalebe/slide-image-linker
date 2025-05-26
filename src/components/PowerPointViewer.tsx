@@ -10,14 +10,29 @@ import { Progress } from '@/components/ui/progress';
 const fetchSlide = async (pptxId: string, slideNum: number) => {
   try {
     const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/slide/${pptxId}/${slideNum}`);
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      throw new Error(await res.text());
+    }
     const blob = await res.blob();
     const meta = res.headers.get("X-Shape-Meta") || "[]";
     const url = URL.createObjectURL(blob);
-    slides[slideNum - 1] = { url, meta: JSON.parse(meta) };
+    const slideData = { url, meta: JSON.parse(meta) };
+    setSlides(slides.map((slide, index) => 
+      index === slideNum - 1 ? slideData : slide
+    ));
     setCurrentSlideIndex(slideNum - 1);
-  } catch (e) {
-    console.error(e);
+    
+    toast({
+      title: "Slide Carregado",
+      description: `Slide ${slideNum} carregado com sucesso`
+    });
+  } catch (error) {
+    console.error('Erro ao carregar slide:', error);
+    toast({
+      title: "Erro",
+      description: "Falha ao carregar o slide",
+      variant: "destructive"
+    });
   }
 };
 
@@ -92,19 +107,49 @@ const PowerPointViewer = () => {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
   const file = event.target.files?.[0];
   if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith('.pptx')) {
+    toast({
+      title: "Erro",
+      description: "Por favor, selecione um arquivo PPTX",
+      variant: "destructive"
+    });
+    return;
+  }
+
+  setIsLoading(true);
+  setUploadProgress(0);
+
   const form = new FormData();
   form.append("file", file);
+  
   try {
     const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/upload-pptx`, {
       method: "POST",
       body: form,
     });
-    if (!res.ok) throw new Error(await res.text());
+
+    if (!res.ok) {
+      throw new Error(await res.text());
+    }
+
     const data = await res.json();
-    toast({ title: "Upload concluído", description: "pptx_id: " + data.pptx_id });
-    fetchSlide(data.pptx_id, 1);
-  } catch (err: any) {
-    toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
+    setSlides(data.slides || []);
+    setCurrentSlideIndex(0);
+    
+    toast({
+      title: "Upload Concluído",
+      description: `Arquivo ${file.name} carregado com sucesso`
+    });
+  } catch (error) {
+    console.error('Erro ao fazer upload:', error);
+    toast({
+      title: "Erro",
+      description: "Falha ao fazer upload do arquivo",
+      variant: "destructive"
+    });
+  } finally {
+    setIsLoading(false);
   }
 };
 
