@@ -70,16 +70,34 @@ const PowerPointViewer = () => {
     return 'border-blue-300';
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type.includes('presentation')) {
-      // In real app, this would process the PowerPoint file
-      toast({
-        title: "PowerPoint Uploaded",
-        description: "Processing slides...",
-      });
-    }
-  };
+const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/upload-pptx`, {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    toast({
+      title: "Upload concluído",
+      description: "pptx_id: " + data.pptx_id,
+    });
+    // Aqui você pode chamar outra ação do Zustand para carregar slides
+    fetchSlide(data.pptx_id, 1);
+  } catch (err: any) {
+    console.error(err);
+    toast({
+      title: "Erro no upload",
+      description: err.message,
+      variant: "destructive",
+    });
+  }
+};
+
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
