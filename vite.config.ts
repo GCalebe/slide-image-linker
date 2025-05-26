@@ -19,4 +19,9 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    'process.env': {
+      VITE_API_BASE: process.env.VITE_API_BASE || 'http://localhost:3000'
+    }
+  }
 }));
