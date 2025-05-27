@@ -55,4 +55,5 @@ const PowerPointViewer: React.FC = () => {
         ) : (
           <p className="text-gray-500">Nenhum slide disponível.</p>
         )}
+        
 export default PowerPointViewer;
