@@ -49,4 +49,4 @@ const ImageViewer: React.FC = () => {
         <input
           ref={fileInputRef}
           type="file"
-export default ImageViewer;
+export default PowerPointViewer;
