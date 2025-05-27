@@ -1,139 +1,188 @@
+
 import { create } from 'zustand';
-import { toast } from '@/components/ui/use-toast';
 
-interface Slide { url: string; meta: any[]; }
-interface ImageElement { id: string; x: number; y: number; w: number; h: number; text?: string; }
-interface ImageData { id: string; url: string; elements: ImageElement[]; }
-interface Association { shapeId: string; imageId: string; }
-
-interface SlideMatcherState {
-  currentPptxId: string;
-  slides: Slide[];
-  currentSlideIndex: number;
-
-  images: ImageData[];
-  currentImageIndex: number;
-
-  associations: Association[];
-  isPanelOpen: boolean;
-
-  uploadPptx: (file: File) => Promise<void>;
-  loadSlidesFromBackend: (pptxId: string) => Promise<void>;
-  uploadImage: (file: File) => Promise<void>;
-
-  addAssociation: (shapeId: string, imageId: string) => void;
-  removeAssociation: (shapeId: string, imageId: string) => void;
-  importMappings: (data: Association[]) => void;
-  exportMappings: () => void;
-  generatePowerPoint: () => Promise<void>;
-
-  togglePanel: () => void;
-  setCurrentSlideIndex: (idx: number) => void;
-  setCurrentImageIndex: (idx: number) => void;
+export interface ShapeElement {
+  id: string;
+  slideIndex: number;
+  coordinates: { x: number; y: number; width: number; height: number };
+  type: 'shape' | 'textbox' | 'image';
+  metadata?: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE;
+export interface ImageElement {
+  id: string;
+  imageIndex: number;
+  coordinates: { x: number; y: number; width: number; height: number };
+  type: 'text' | 'object';
+  text?: string;
+  confidence?: number;
+}
+
+export interface Association {
+  shapeId: string;
+  imageId: string;
+  status: 'active' | 'pending' | 'error';
+}
+
+export interface SlideData {
+  index: number;
+  imageUrl: string;
+  shapes: ShapeElement[];
+}
+
+export interface ImageData {
+  index: number;
+  file: File;
+  url: string;
+  elements: ImageElement[];
+}
+
+interface SlideMatcherState {
+  // PowerPoint data
+  slides: SlideData[];
+  currentSlideIndex: number;
+  selectedShapeId: string | null;
+  
+  // External images data
+  images: ImageData[];
+  currentImageIndex: number;
+  selectedImageElementId: string | null;
+  
+  // Associations
+  associations: Association[];
+  
+  // UI state
+  isPanelCollapsed: boolean;
+  zoomLevel: number;
+  
+  // Actions
+  setSlides: (slides: SlideData[]) => void;
+  setCurrentSlideIndex: (index: number) => void;
+  setSelectedShapeId: (id: string | null) => void;
+  addShape: (slideIndex: number, shape: ShapeElement) => void;
+  
+  addImage: (file: File) => void;
+  setCurrentImageIndex: (index: number) => void;
+  setSelectedImageElementId: (id: string | null) => void;
+  addImageElement: (imageIndex: number, element: ImageElement) => void;
+  
+  addAssociation: (association: Association) => void;
+  removeAssociation: (shapeId: string, imageId: string) => void;
+  updateAssociationStatus: (shapeId: string, imageId: string, status: Association['status']) => void;
+  
+  togglePanel: () => void;
+  setZoomLevel: (level: number) => void;
+  
+  // Persistence
+  exportData: () => string;
+  importData: (data: string) => void;
+  saveToLocalStorage: () => void;
+  loadFromLocalStorage: () => void;
+}
 
 export const useSlideMatcherStore = create<SlideMatcherState>((set, get) => ({
-  currentPptxId: '',
+  // Initial state
   slides: [],
   currentSlideIndex: 0,
+  selectedShapeId: null,
+  
   images: [],
   currentImageIndex: 0,
+  selectedImageElementId: null,
+  
   associations: [],
-  isPanelOpen: false,
-
-  uploadPptx: async (file) => {
-    try {
-      const form = new FormData(); form.append('file', file);
-      const res = await fetch(`${API_BASE}/api/upload-pptx`, { method: 'POST', body: form });
-      if (!res.ok) throw new Error(await res.text());
-      const { pptx_id } = await res.json();
-      set({ currentPptxId: pptx_id });
-      toast({ title: 'Upload realizado', description: 'PPTX enviado com sucesso' });
-    } catch (error: any) {
-      console.error('uploadPptx error', error);
-      toast({ title: 'Erro', description: 'Falha ao enviar PPTX', variant: 'destructive' });
-      throw error;
-    }
+  
+  isPanelCollapsed: false,
+  zoomLevel: 1,
+  
+  // Actions
+  setSlides: (slides) => set({ slides }),
+  setCurrentSlideIndex: (index) => set({ currentSlideIndex: index }),
+  setSelectedShapeId: (id) => set({ selectedShapeId: id }),
+  addShape: (slideIndex, shape) => set((state) => ({
+    slides: state.slides.map(slide => 
+      slide.index === slideIndex 
+        ? { ...slide, shapes: [...slide.shapes, shape] }
+        : slide
+    )
+  })),
+  
+  addImage: (file) => {
+    const url = URL.createObjectURL(file);
+    const newImage: ImageData = {
+      index: get().images.length,
+      file,
+      url,
+      elements: []
+    };
+    set((state) => ({
+      images: [...state.images, newImage],
+      currentImageIndex: state.images.length
+    }));
   },
-
-  loadSlidesFromBackend: async (pptxId) => {
-    try {
-      const count = 10; // TODO: obtain real count from backend
-      const slides: Slide[] = [];
-      for (let i = 1; i <= count; i++) {
-        const res = await fetch(`${API_BASE}/api/slide/${pptxId}/${i}`);
-        if (!res.ok) throw new Error(await res.text());
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const meta = JSON.parse(res.headers.get('X-Shape-Meta') || '[]');
-        slides.push({ url, meta });
-      }
-      set({ slides, currentSlideIndex: 0 });
-    } catch (error: any) {
-      console.error('loadSlidesFromBackend error', error);
-      toast({ title: 'Erro', description: 'Falha ao carregar slides', variant: 'destructive' });
-      throw error;
-    }
+  
+  setCurrentImageIndex: (index) => set({ currentImageIndex: index }),
+  setSelectedImageElementId: (id) => set({ selectedImageElementId: id }),
+  addImageElement: (imageIndex, element) => set((state) => ({
+    images: state.images.map(img => 
+      img.index === imageIndex 
+        ? { ...img, elements: [...img.elements, element] }
+        : img
+    )
+  })),
+  
+  addAssociation: (association) => set((state) => ({
+    associations: [...state.associations, association]
+  })),
+  
+  removeAssociation: (shapeId, imageId) => set((state) => ({
+    associations: state.associations.filter(a => 
+      !(a.shapeId === shapeId && a.imageId === imageId)
+    )
+  })),
+  
+  updateAssociationStatus: (shapeId, imageId, status) => set((state) => ({
+    associations: state.associations.map(a => 
+      a.shapeId === shapeId && a.imageId === imageId 
+        ? { ...a, status }
+        : a
+    )
+  })),
+  
+  togglePanel: () => set((state) => ({ isPanelCollapsed: !state.isPanelCollapsed })),
+  setZoomLevel: (level) => set({ zoomLevel: Math.max(0.5, Math.min(3, level)) }),
+  
+  exportData: () => {
+    const state = get();
+    return JSON.stringify({
+      associations: state.associations,
+      slides: state.slides.map(s => ({ ...s, shapes: s.shapes })),
+      images: state.images.map(i => ({ ...i, elements: i.elements }))
+    });
   },
-
-  uploadImage: async (file) => {
+  
+  importData: (data) => {
     try {
-      const form = new FormData(); form.append('file', file);
-      const res1 = await fetch(`${API_BASE}/api/upload-image`, { method: 'POST', body: form });
-      if (!res1.ok) throw new Error(await res1.text());
-      const { img_id } = await res1.json();
-      const res2 = await fetch(`${API_BASE}/api/image/${img_id}`);
-      if (!res2.ok) throw new Error(await res2.text());
-      const blob = await res2.blob();
-      const url = URL.createObjectURL(blob);
-      const boxes = JSON.parse(res2.headers.get('X-Box-Meta') || '[]');
-      set(state => ({ images: [...state.images, { id: img_id, url, elements: boxes }] }));
-      toast({ title: 'Imagem enviada', description: file.name });
-    } catch (error: any) {
-      console.error('uploadImage error', error);
-      toast({ title: 'Erro', description: 'Falha ao enviar imagem', variant: 'destructive' });
-      throw error;
-    }
-  },
-
-  addAssociation: (shapeId, imageId) => set(state => ({ associations: [...state.associations, { shapeId, imageId }] })),
-  removeAssociation: (shapeId, imageId) => set(state => ({ associations: state.associations.filter(a => !(a.shapeId === shapeId && a.imageId === imageId)) })),
-
-  importMappings: (data) => set({ associations: data }),
-  exportMappings: () => {
-    try {
-      const data = JSON.stringify(get().associations, null, 2);
-      const blob = new Blob([data], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'mappings.json'; a.click();
-      toast({ title: 'Exportação realizada', description: 'Mappings salvos' });
-    } catch (error: any) {
-      console.error('exportMappings error', error);
-      toast({ title: 'Erro', description: 'Falha ao exportar mappings', variant: 'destructive' });
-    }
-  },
-
-  generatePowerPoint: async () => {
-    try {
-      const { currentPptxId, associations } = get();
-      if (!currentPptxId) throw new Error('Nenhum PPTX carregado');
-      const res = await fetch(`${API_BASE}/api/apply-mappings/${currentPptxId}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(associations),
+      const parsed = JSON.parse(data);
+      set({
+        associations: parsed.associations || [],
+        slides: parsed.slides || [],
+        images: parsed.images || []
       });
-      if (!res.ok) throw new Error(await res.text());
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `${currentPptxId}_updated.pptx`; a.click();
-      toast({ title: 'Sucesso', description: 'PPTX gerado' });
-    } catch (error: any) {
-      console.error('generatePowerPoint error', error);
-      toast({ title: 'Erro', description: 'Falha ao gerar PPTX', variant: 'destructive' });
+    } catch (error) {
+      console.error('Failed to import data:', error);
     }
   },
-
-  togglePanel: () => set(state => ({ isPanelOpen: !state.isPanelOpen })),
-  setCurrentSlideIndex: (idx) => set({ currentSlideIndex: idx }),
-  setCurrentImageIndex: (idx) => set({ currentImageIndex: idx }),
+  
+  saveToLocalStorage: () => {
+    const data = get().exportData();
+    localStorage.setItem('slide-matcher-data', data);
+  },
+  
+  loadFromLocalStorage: () => {
+    const data = localStorage.getItem('slide-matcher-data');
+    if (data) {
+      get().importData(data);
+    }
+  }
 }));

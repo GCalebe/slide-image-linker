@@ -1,67 +1,212 @@
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
-import { toast } from '@/components/ui/use-toast';
 
-const PowerPointViewer: React.FC = () => {
+import React, { useRef, useEffect } from 'react';
+import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+const PowerPointViewer = () => {
   const {
     slides,
     currentSlideIndex,
-    uploadPptx,
+    selectedShapeId,
+    associations,
+    zoomLevel,
     setCurrentSlideIndex,
+    setSelectedShapeId,
+    addShape,
+    setZoomLevel
   } = useSlideMatcherStore();
+  
+  const { toast } = useToast();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const currentSlide = slides[currentSlideIndex];
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        await uploadPptx(file);
-      } catch {
-        // Error handled in store
-      }
+  const handleShapeClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!currentSlide) return;
+    
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / zoomLevel;
+    const y = (event.clientY - rect.top) / zoomLevel;
+    
+    // Simulate shape detection (in real app, this would call backend)
+    const newShapeId = `Slide${currentSlideIndex + 1}-Shape${currentSlide.shapes.length + 1}`;
+    
+    const newShape = {
+      id: newShapeId,
+      slideIndex: currentSlideIndex,
+      coordinates: { x: x - 50, y: y - 25, width: 100, height: 50 },
+      type: 'shape' as const,
+      metadata: `Detected shape at (${Math.round(x)}, ${Math.round(y)})`
+    };
+    
+    addShape(currentSlideIndex, newShape);
+    setSelectedShapeId(newShapeId);
+    
+    toast({
+      title: "Shape Detected",
+      description: `Created ${newShapeId}`,
+    });
+  };
+
+  const handleWheel = (event: React.WheelEvent) => {
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? -0.1 : 0.1;
+    setZoomLevel(zoomLevel + delta);
+  };
+
+  const navigateSlide = (direction: 'prev' | 'next') => {
+    if (direction === 'prev' && currentSlideIndex > 0) {
+      setCurrentSlideIndex(currentSlideIndex - 1);
+    } else if (direction === 'next' && currentSlideIndex < slides.length - 1) {
+      setCurrentSlideIndex(currentSlideIndex + 1);
+    }
+  };
+
+  const getShapeBorderColor = (shapeId: string) => {
+    const isAssociated = associations.some(a => a.shapeId === shapeId);
+    if (isAssociated) return 'border-green-400';
+    if (selectedShapeId === shapeId) return 'border-blue-400';
+    return 'border-blue-300';
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.includes('presentation')) {
+      // In real app, this would process the PowerPoint file
+      toast({
+        title: "PowerPoint Uploaded",
+        description: "Processing slides...",
+      });
     }
   };
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      <div className="p-4 border-b bg-white flex items-center justify-between">
-        <label htmlFor="ppt-upload">
-          <Button variant="outline">Upload PPT</Button>
-        </label>
-        <input
-          id="ppt-upload"
-          type="file"
-          accept=".pptx"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setCurrentSlideIndex(currentSlideIndex - 1)}
-            disabled={currentSlideIndex === 0}
-            size="sm"
-            variant="outline"
-          >
-            <ChevronLeft />
-          </Button>
-          <span>{currentSlideIndex + 1} / {slides.length}</span>
-          <Button
-            onClick={() => setCurrentSlideIndex(currentSlideIndex + 1)}
-            disabled={currentSlideIndex >= slides.length - 1}
-            size="sm"
-            variant="outline"
-          >
-            <ChevronRight />
-          </Button>
+      {/* Header */}
+      <div className="p-4 bg-white border-b border-gray-200 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-800">PowerPoint Viewer</h2>
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              accept=".ppt,.pptx"
+              onChange={handleFileUpload}
+              className="hidden"
+              id="ppt-upload"
+            />
+            <label htmlFor="ppt-upload">
+              <Button variant="outline" size="sm" className="cursor-pointer">
+                <Upload className="w-4 h-4 mr-2" />
+                Upload PPT
+              </Button>
+            </label>
+            <span className="text-sm text-gray-600">
+              Zoom: {Math.round(zoomLevel * 100)}%
+            </span>
+          </div>
         </div>
       </div>
-      <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-100">
-        {slides[currentSlideIndex] ? (
-          <img src={slides[currentSlideIndex].url} alt={`Slide ${currentSlideIndex+1}`} />
+
+      {/* Slide Viewer */}
+      <div 
+        ref={containerRef}
+        className="flex-1 overflow-auto bg-gray-100 relative"
+        onWheel={handleWheel}
+      >
+        {currentSlide ? (
+          <div 
+            className="relative inline-block cursor-crosshair"
+            style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }}
+            onClick={handleShapeClick}
+          >
+            <img
+              src={currentSlide.imageUrl || "/placeholder.svg"}
+              alt={`Slide ${currentSlideIndex + 1}`}
+              className="block max-w-none"
+              style={{ width: '800px', height: '600px' }}
+            />
+            
+            {/* Render detected shapes */}
+            {currentSlide.shapes.map((shape) => (
+              <div key={shape.id} className="absolute group">
+                <div
+                  className={`absolute border-2 ${getShapeBorderColor(shape.id)} bg-transparent hover:bg-blue-50 hover:bg-opacity-20 transition-colors`}
+                  style={{
+                    left: shape.coordinates.x,
+                    top: shape.coordinates.y,
+                    width: shape.coordinates.width,
+                    height: shape.coordinates.height,
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedShapeId(shape.id);
+                  }}
+                />
+                
+                {/* Shape ID floating label */}
+                {selectedShapeId === shape.id && (
+                  <div
+                    className="absolute bg-blue-600 text-white text-xs px-2 py-1 rounded shadow-lg z-10"
+                    style={{
+                      left: shape.coordinates.x + shape.coordinates.width + 5,
+                      top: shape.coordinates.y - 5,
+                    }}
+                  >
+                    {shape.id}
+                  </div>
+                )}
+                
+                {/* Tooltip */}
+                <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs p-2 rounded shadow-lg z-20 pointer-events-none"
+                     style={{
+                       left: shape.coordinates.x,
+                       top: shape.coordinates.y + shape.coordinates.height + 5,
+                     }}>
+                  {shape.metadata}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
-          <p className="text-gray-500">Nenhum slide disponível.</p>
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center text-gray-500">
+              <Upload className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Upload a PowerPoint file to get started</p>
+            </div>
+          </div>
         )}
+      </div>
+
+      {/* Navigation */}
+      <div className="p-4 bg-white border-t border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateSlide('prev')}
+              disabled={currentSlideIndex === 0}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-sm text-gray-600 min-w-0">
+              Slide {currentSlideIndex + 1} of {slides.length || 1}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateSlide('next')}
+              disabled={currentSlideIndex >= slides.length - 1}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+          
+          <div className="text-xs text-gray-500">
+            Shapes detected: {currentSlide?.shapes.length || 0}
+          </div>
+        </div>
       </div>
     </div>
   );

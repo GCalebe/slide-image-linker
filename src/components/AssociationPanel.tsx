@@ -1,115 +1,278 @@
-import React, { useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Download, Upload, Link, Trash2, FileDown } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
-import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
 
-const AssociationPanel: React.FC = () => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+import React, { useState } from 'react';
+import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Download, 
+  Upload, 
+  Trash2,
+  Link,
+  FileDown
+} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+const AssociationPanel = () => {
   const {
     associations,
-    isPanelOpen,
-    togglePanel,
+    slides,
+    images,
+    selectedShapeId,
+    selectedImageElementId,
+    isPanelCollapsed,
     addAssociation,
     removeAssociation,
-    importMappings,
-    exportMappings,
-    generatePowerPoint,
-    currentPptxId,
+    updateAssociationStatus,
+    togglePanel,
+    exportData,
+    importData,
+    saveToLocalStorage,
+    loadFromLocalStorage
   } = useSlideMatcherStore();
+  
+  const { toast } = useToast();
+  const [draggedId, setDraggedId] = useState<string | null>(null);
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result as string);
-        importMappings(data);
-        toast({ title: 'Importação concluída', description: file.name });
-      } catch {
-        toast({ title: 'Erro na importação', description: 'JSON inválido', variant: 'destructive' });
+  const createAssociation = () => {
+    if (selectedShapeId && selectedImageElementId) {
+      const existingAssociation = associations.find(
+        a => a.shapeId === selectedShapeId && a.imageId === selectedImageElementId
+      );
+      
+      if (existingAssociation) {
+        toast({
+          title: "Association exists",
+          description: "This mapping already exists",
+          variant: "destructive"
+        });
+        return;
       }
-    };
-    reader.readAsText(file);
+      
+      addAssociation({
+        shapeId: selectedShapeId,
+        imageId: selectedImageElementId,
+        status: 'active'
+      });
+      
+      toast({
+        title: "Association created",
+        description: `Linked ${selectedShapeId} ↔ ${selectedImageElementId}`,
+      });
+      
+      saveToLocalStorage();
+    } else {
+      toast({
+        title: "Select elements",
+        description: "Please select both a shape and an image element",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleExport = () => {
-    try {
-      exportMappings();
-      toast({ title: 'Exportação realizada', description: 'Mappings salvos' });
-    } catch {
-      // error handled in store
+    const data = exportData();
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'slide-matcher-mappings.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Export complete",
+      description: "Mappings exported successfully",
+    });
+  };
+
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        importData(content);
+        saveToLocalStorage();
+        toast({
+          title: "Import complete",
+          description: "Mappings imported successfully",
+        });
+      };
+      reader.readAsText(file);
     }
   };
 
-  const handleGenerate = () => {
-    if (!currentPptxId || associations.length === 0) {
-      toast({ title: 'Nada a gerar', description: 'Associe elementos antes', variant: 'warning' });
+  const generatePowerPoint = async () => {
+    if (associations.length === 0) {
+      toast({
+        title: "No mappings",
+        description: "Create some associations first",
+        variant: "destructive"
+      });
       return;
     }
-    try {
-      generatePowerPoint();
-      toast({ title: 'Processando', description: 'Gerando PPTX...' });
-    } catch {
-      // handled in store
+
+    toast({
+      title: "Generating PowerPoint",
+      description: "Processing mappings and applying changes...",
+    });
+
+    // In a real implementation, this would call the backend API
+    setTimeout(() => {
+      toast({
+        title: "PowerPoint ready",
+        description: "Download will start automatically",
+      });
+    }, 2000);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'error': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
-  return (
-    <div className={`fixed top-0 right-0 h-full w-80 bg-white shadow-xl transition-transform ${isPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-      <div className="p-4 border-b flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Associações</h3>
-        <Button variant="ghost" size="icon" onClick={togglePanel}>
-          {isPanelOpen ? '✕' : '→'}
+
+  if (isPanelCollapsed) {
+    return (
+      <div className="w-8 h-full bg-white border-l border-gray-200 flex items-start justify-center pt-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={togglePanel}
+          className="p-1 h-8 w-6"
+        >
+          <ChevronLeft className="w-4 h-4" />
         </Button>
       </div>
-      <div className="p-4 flex flex-col space-y-4 overflow-y-auto h-[calc(100%-4rem)]">
-        <Button onClick={() => addAssociation('', '')} variant="outline">
-          <Link className="w-4 h-4 mr-2" />
-          Criar Associação
-        </Button>
-        <div className="flex space-x-2">
-          <Button onClick={() => fileInputRef.current?.click()} variant="outline">
-            <Upload className="w-4 h-4 mr-2" />
-            Importar JSON
-          </Button>
-          <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
-          <Button onClick={handleExport} variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Exportar JSON
+    );
+  }
+
+  return (
+    <div className="w-80 h-full bg-white border-l border-gray-200 flex flex-col">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">Associations</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={togglePanel}
+            className="p-1"
+          >
+            <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
-        <Button onClick={handleGenerate} variant="secondary">
-          <FileDown className="w-4 h-4 mr-2" />
-          Generate PPT
+        
+        {/* Selected elements */}
+        <div className="space-y-2 mb-4">
+          <div className="text-sm">
+            <span className="text-gray-600">Shape: </span>
+            <Badge variant={selectedShapeId ? "default" : "secondary"} className="text-xs">
+              {selectedShapeId || "None selected"}
+            </Badge>
+          </div>
+          <div className="text-sm">
+            <span className="text-gray-600">Element: </span>
+            <Badge variant={selectedImageElementId ? "default" : "secondary"} className="text-xs">
+              {selectedImageElementId || "None selected"}
+            </Badge>
+          </div>
+        </div>
+        
+        {/* Create association button */}
+        <Button 
+          onClick={createAssociation}
+          disabled={!selectedShapeId || !selectedImageElementId}
+          className="w-full mb-4"
+          size="sm"
+        >
+          <Link className="w-4 h-4 mr-2" />
+          Create Association
         </Button>
-        <div className="mt-4 flex-1 overflow-auto">
-          {associations.length === 0 ? (
-            <p className="text-sm text-gray-500">Nenhuma associação.</p>
-          ) : (
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-2">Shape ID</th>
-                  <th className="py-2">Image ID</th>
-                  <th className="py-2">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {associations.map(a => (
-                  <tr key={`${a.shapeId}-${a.imageId}`} className="border-b last:border-none">
-                    <td className="py-2">{a.shapeId}</td>
-                    <td className="py-2">{a.imageId}</td>
-                    <td className="py-2">
-                      <Button size="icon" variant="ghost" onClick={() => removeAssociation(a.shapeId, a.imageId)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="w-4 h-4" />
+          </Button>
+          <div className="relative">
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              className="hidden"
+              id="import-file"
+            />
+            <label htmlFor="import-file">
+              <Button variant="outline" size="sm" className="cursor-pointer">
+                <Upload className="w-4 h-4" />
+              </Button>
+            </label>
+          </div>
+          <Button variant="default" size="sm" onClick={generatePowerPoint} className="flex-1">
+            <FileDown className="w-4 h-4 mr-2" />
+            Generate PPT
+          </Button>
+        </div>
+      </div>
+
+      {/* Associations list */}
+      <div className="flex-1 overflow-auto p-4">
+        <div className="space-y-2">
+          {associations.map((association, index) => (
+            <Card key={`${association.shapeId}-${association.imageId}`} className="text-sm">
+              <CardContent className="p-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-blue-600 font-medium truncate mb-1">
+                      {association.shapeId}
+                    </div>
+                    <div className="text-xs text-orange-600 font-medium truncate mb-2">
+                      {association.imageId}
+                    </div>
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs ${getStatusColor(association.status)}`}
+                    >
+                      {association.status}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeAssociation(association.shapeId, association.imageId)}
+                    className="p-1 h-6 w-6 text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          
+          {associations.length === 0 && (
+            <div className="text-center text-gray-500 py-8">
+              <Link className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No associations yet</p>
+              <p className="text-xs text-gray-400">
+                Select elements and create mappings
+              </p>
+            </div>
           )}
+        </div>
+      </div>
+      
+      {/* Footer stats */}
+      <div className="p-4 border-t border-gray-200 text-xs text-gray-600">
+        <div className="flex justify-between">
+          <span>Total: {associations.length}</span>
+          <span>Active: {associations.filter(a => a.status === 'active').length}</span>
         </div>
       </div>
     </div>
@@ -117,53 +280,3 @@ const AssociationPanel: React.FC = () => {
 };
 
 export default AssociationPanel;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            

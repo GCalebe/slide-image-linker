@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-python-pptx
-Pillow
-python-multipart
-python-dotenv
-httpx
