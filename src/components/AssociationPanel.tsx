@@ -1,43 +1,10 @@
 import React, { useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Download, Upload, Link, Trash2, FileDown } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
-import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
-
-const AssociationPanel: React.FC = () => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const {
-    associations,
-    isPanelOpen,
-    togglePanel,
-    addAssociation,
-    removeAssociation,
-    importMappings,
-    exportMappings,
-    generatePowerPoint,
-    currentPptxId,
-  } = useSlideMatcherStore();
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result as string);
-        importMappings(data);
-        toast({ title: 'Importação concluída', description: file.name });
-      } catch {
-        toast({ title: 'Erro na importação', description: 'JSON inválido', variant: 'destructive' });
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleExport = () => {
     try {
       exportMappings();
-    } catch {}
+      toast({ title: 'Exportação realizada', description: 'Mappings salvos' });
+    } catch {
+      // error handled in store
+    }
   };
 
   const handleGenerate = () => {
@@ -47,7 +14,10 @@ const AssociationPanel: React.FC = () => {
     }
     try {
       generatePowerPoint();
-    } catch {}
+      toast({ title: 'Processando', description: 'Gerando PPTX...' });
+    } catch {
+      // handled in store
+    }
   };
 
   return (
@@ -108,5 +78,7 @@ const AssociationPanel: React.FC = () => {
         </div>
       </div>
     </div>
-);
+  );
+};
+
 export default AssociationPanel;
