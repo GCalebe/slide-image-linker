@@ -73,7 +73,6 @@ const ImageViewer: React.FC = () => {
         </Button>
       </div>
   </div>
-</div>
   );
 };
 
