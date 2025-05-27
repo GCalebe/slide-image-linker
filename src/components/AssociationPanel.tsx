@@ -1,12 +1,3 @@
-import React, { useRef } from 'react';
-    try {
-      exportMappings();
-      toast({ title: 'Exportação realizada', description: 'Mappings salvos' });
-    } catch {
-      // error handled in store
-    }
-  };
-
   const handleGenerate = () => {
     if (!currentPptxId || associations.length === 0) {
       toast({ title: 'Nada a gerar', description: 'Associe elementos antes', variant: 'warning' });
