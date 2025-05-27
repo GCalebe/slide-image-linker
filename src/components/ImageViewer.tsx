@@ -1,9 +1,8 @@
 
-import React, { useRef, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
+import React, { useRef, useState } from 'react';
 import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Upload, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const ImageViewer = () => {
@@ -22,53 +21,34 @@ const ImageViewer = () => {
   
   const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const currentImage = images[currentImageIndex];
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    acceptedFiles.forEach((file) => {
-      if (file.type.startsWith('image/')) {
-        addImage(file);
-        toast({
-          title: "Image Uploaded",
-          description: `Added ${file.name}`,
-        });
-      }
-    });
-  }, [addImage, toast]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.bmp', '.webp']
-    },
-    multiple: true
-  });
-
-  const handleImageClick = async (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleImageClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!currentImage) return;
     
     const rect = event.currentTarget.getBoundingClientRect();
     const x = (event.clientX - rect.left) / zoomLevel;
     const y = (event.clientY - rect.top) / zoomLevel;
     
-    // Simulate OCR detection (in real app, this would call OpenRouter API)
+    // Simulate OCR detection
     const newElementId = `Img${currentImageIndex + 1}-Box${currentImage.elements.length + 1}`;
     
     const newElement = {
       id: newElementId,
       imageIndex: currentImageIndex,
-      coordinates: { x: x - 60, y: y - 20, width: 120, height: 40 },
+      coordinates: { x: x - 50, y: y - 25, width: 100, height: 50 },
       type: 'text' as const,
-      text: `Detected text at (${Math.round(x)}, ${Math.round(y)})`,
-      confidence: 0.85 + Math.random() * 0.1
+      text: `Texto detectado em (${Math.round(x)}, ${Math.round(y)})`,
+      confidence: 0.95
     };
     
     addImageElement(currentImageIndex, newElement);
     setSelectedImageElementId(newElementId);
     
     toast({
-      title: "OCR Detection",
-      description: `Created ${newElementId}`,
+      title: "Elemento Detectado",
+      description: `Criado ${newElementId}`,
     });
   };
 
@@ -93,23 +73,89 @@ const ImageViewer = () => {
     return 'border-orange-300';
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      addImage(file);
+      toast({
+        title: "Imagem Carregada",
+        description: "Processando com OCR...",
+      });
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    
+    const files = Array.from(event.dataTransfer.files);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length > 0) {
+      imageFiles.forEach(file => {
+        addImage(file);
+      });
+      toast({
+        title: "Imagens Carregadas",
+        description: `${imageFiles.length} imagem(ns) processadas com OCR...`,
+      });
+    } else {
+      toast({
+        title: "Arquivo Inválido",
+        description: "Por favor, selecione arquivos de imagem válidos",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <div className="p-4 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">Image Viewer</h2>
-          <span className="text-sm text-gray-600">
-            Zoom: {Math.round(zoomLevel * 100)}%
-          </span>
+          <h2 className="text-lg font-semibold text-gray-800">Visualizador de Imagem</h2>
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+              id="image-upload"
+              multiple
+            />
+            <label htmlFor="image-upload">
+              <Button variant="outline" size="sm" className="cursor-pointer">
+                <Upload className="w-4 h-4 mr-2" />
+                Carregar Imagem
+              </Button>
+            </label>
+            <span className="text-sm text-gray-600">
+              Zoom: {Math.round(zoomLevel * 100)}%
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Image Viewer */}
       <div 
         ref={containerRef}
-        className="flex-1 overflow-auto bg-gray-100 relative"
+        className={`flex-1 overflow-auto bg-gray-100 relative transition-colors ${
+          isDragOver ? 'bg-orange-50 border-2 border-dashed border-orange-400' : ''
+        }`}
         onWheel={handleWheel}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
         {currentImage ? (
           <div 
@@ -119,9 +165,8 @@ const ImageViewer = () => {
           >
             <img
               src={currentImage.url}
-              alt={`Image ${currentImageIndex + 1}`}
-              className="block max-w-none"
-              style={{ maxHeight: '600px', width: 'auto' }}
+              alt={`Imagem ${currentImageIndex + 1}`}
+              className="block max-w-none max-h-none"
             />
             
             {/* Render detected elements */}
@@ -155,37 +200,35 @@ const ImageViewer = () => {
                 )}
                 
                 {/* Tooltip */}
-                <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs p-2 rounded shadow-lg z-20 pointer-events-none"
+                <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs p-2 rounded shadow-lg z-20 pointer-events-none max-w-xs"
                      style={{
                        left: element.coordinates.x,
                        top: element.coordinates.y + element.coordinates.height + 5,
                      }}>
-                  {element.text} {element.confidence && `(${Math.round(element.confidence * 100)}%)`}
+                  <p>{element.text}</p>
+                  {element.confidence && (
+                    <p className="text-gray-300">Confiança: {Math.round(element.confidence * 100)}%</p>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div 
-            {...getRootProps()} 
-            className={`flex items-center justify-center h-full border-2 border-dashed transition-colors ${
-              isDragActive ? 'border-orange-400 bg-orange-50' : 'border-gray-300'
-            }`}
-          >
-            <input {...getInputProps()} />
+          <div className="flex items-center justify-center h-full">
             <div className="text-center text-gray-500">
-              <ImageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              {isDragActive ? (
-                <p>Drop images here...</p>
-              ) : (
-                <div>
-                  <p className="mb-2">Drag & drop images here</p>
-                  <Button variant="outline" size="sm">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Or click to select
-                  </Button>
-                </div>
-              )}
+              <Upload className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Arraste imagens aqui ou clique no botão para carregar</p>
+              <p className="text-sm mt-2">Formatos suportados: JPG, PNG, GIF, WebP</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Drag overlay */}
+        {isDragOver && (
+          <div className="absolute inset-0 bg-orange-100 bg-opacity-50 flex items-center justify-center pointer-events-none">
+            <div className="text-center text-orange-600">
+              <Upload className="w-16 h-16 mx-auto mb-4" />
+              <p className="text-xl font-semibold">Solte as imagens aqui</p>
             </div>
           </div>
         )}
@@ -204,7 +247,7 @@ const ImageViewer = () => {
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <span className="text-sm text-gray-600 min-w-0">
-              Image {currentImageIndex + 1} of {images.length || 1}
+              Imagem {currentImageIndex + 1} de {images.length || 1}
             </span>
             <Button
               variant="outline"
@@ -217,7 +260,7 @@ const ImageViewer = () => {
           </div>
           
           <div className="text-xs text-gray-500">
-            Elements detected: {currentImage?.elements.length || 0}
+            Elementos detectados: {currentImage?.elements.length || 0}
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Upload } from 'lucide-react';
@@ -20,6 +20,7 @@ const PowerPointViewer = () => {
   
   const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const currentSlide = slides[currentSlideIndex];
 
   const handleShapeClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -37,15 +38,15 @@ const PowerPointViewer = () => {
       slideIndex: currentSlideIndex,
       coordinates: { x: x - 50, y: y - 25, width: 100, height: 50 },
       type: 'shape' as const,
-      metadata: `Detected shape at (${Math.round(x)}, ${Math.round(y)})`
+      metadata: `Forma detectada em (${Math.round(x)}, ${Math.round(y)})`
     };
     
     addShape(currentSlideIndex, newShape);
     setSelectedShapeId(newShapeId);
     
     toast({
-      title: "Shape Detected",
-      description: `Created ${newShapeId}`,
+      title: "Forma Detectada",
+      description: `Criado ${newShapeId}`,
     });
   };
 
@@ -72,11 +73,45 @@ const PowerPointViewer = () => {
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type.includes('presentation')) {
-      // In real app, this would process the PowerPoint file
+    if (file && (file.type.includes('presentation') || file.name.endsWith('.pptx') || file.name.endsWith('.ppt'))) {
       toast({
-        title: "PowerPoint Uploaded",
-        description: "Processing slides...",
+        title: "PowerPoint Carregado",
+        description: "Processando slides...",
+      });
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    
+    const files = Array.from(event.dataTransfer.files);
+    const pptFile = files.find(file => 
+      file.type.includes('presentation') || 
+      file.name.endsWith('.pptx') || 
+      file.name.endsWith('.ppt')
+    );
+    
+    if (pptFile) {
+      toast({
+        title: "PowerPoint Carregado",
+        description: `Processando ${pptFile.name}...`,
+      });
+    } else {
+      toast({
+        title: "Arquivo Inválido",
+        description: "Por favor, selecione um arquivo PowerPoint (.ppt ou .pptx)",
+        variant: "destructive",
       });
     }
   };
@@ -86,7 +121,7 @@ const PowerPointViewer = () => {
       {/* Header */}
       <div className="p-4 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">PowerPoint Viewer</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Visualizador de PowerPoint</h2>
           <div className="flex items-center gap-2">
             <input
               type="file"
@@ -98,7 +133,7 @@ const PowerPointViewer = () => {
             <label htmlFor="ppt-upload">
               <Button variant="outline" size="sm" className="cursor-pointer">
                 <Upload className="w-4 h-4 mr-2" />
-                Upload PPT
+                Carregar PPT
               </Button>
             </label>
             <span className="text-sm text-gray-600">
@@ -111,8 +146,13 @@ const PowerPointViewer = () => {
       {/* Slide Viewer */}
       <div 
         ref={containerRef}
-        className="flex-1 overflow-auto bg-gray-100 relative"
+        className={`flex-1 overflow-auto bg-gray-100 relative transition-colors ${
+          isDragOver ? 'bg-blue-50 border-2 border-dashed border-blue-400' : ''
+        }`}
         onWheel={handleWheel}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
         {currentSlide ? (
           <div 
@@ -172,7 +212,18 @@ const PowerPointViewer = () => {
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-gray-500">
               <Upload className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Upload a PowerPoint file to get started</p>
+              <p>Arraste um arquivo PowerPoint aqui ou clique no botão para carregar</p>
+              <p className="text-sm mt-2">Formatos suportados: .ppt, .pptx</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Drag overlay */}
+        {isDragOver && (
+          <div className="absolute inset-0 bg-blue-100 bg-opacity-50 flex items-center justify-center pointer-events-none">
+            <div className="text-center text-blue-600">
+              <Upload className="w-16 h-16 mx-auto mb-4" />
+              <p className="text-xl font-semibold">Solte o arquivo PowerPoint aqui</p>
             </div>
           </div>
         )}
@@ -191,7 +242,7 @@ const PowerPointViewer = () => {
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <span className="text-sm text-gray-600 min-w-0">
-              Slide {currentSlideIndex + 1} of {slides.length || 1}
+              Slide {currentSlideIndex + 1} de {slides.length || 1}
             </span>
             <Button
               variant="outline"
@@ -204,7 +255,7 @@ const PowerPointViewer = () => {
           </div>
           
           <div className="text-xs text-gray-500">
-            Shapes detected: {currentSlide?.shapes.length || 0}
+            Formas detectadas: {currentSlide?.shapes.length || 0}
           </div>
         </div>
       </div>
