@@ -76,4 +76,4 @@ const ImageViewer: React.FC = () => {
   );
 };
 
-export default PowerPointViewer;
+export default ImageViewer;
