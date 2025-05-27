@@ -72,6 +72,9 @@ const ImageViewer: React.FC = () => {
           <ChevronRight />
         </Button>
       </div>
-    </div>
-);
-export default ImageViewer;
+  </div>
+</div>
+  );
+};
+
+export default PowerPointViewer;
