@@ -1,67 +1,52 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
 
-const PowerPointViewer: React.FC = () => {
+const ImageViewer: React.FC = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
-    slides,
-    currentSlideIndex,
-    uploadPptx,
-    setCurrentSlideIndex,
+    images,
+    currentImageIndex,
+    uploadImage,
+    setCurrentImageIndex,
   } = useSlideMatcherStore();
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const onDrop = async (files: File[]) => {
+    for (const file of files) {
       try {
-        await uploadPptx(file);
+        await uploadImage(file);
       } catch {
         // Error handled in store
       }
     }
   };
 
+  const { getRootProps, getInputProps, open } = useDropzone({
+    onDrop,
+    accept: { 'image/*': [] },
+    multiple: false,
+    noClick: true,
+  });
+
+  const navigateImage = (dir: 'prev' | 'next') => {
+    if (dir === 'prev' && currentImageIndex > 0)
+      setCurrentImageIndex(currentImageIndex - 1);
+    if (dir === 'next' && currentImageIndex < images.length - 1)
+      setCurrentImageIndex(currentImageIndex + 1);
+  };
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      <div className="p-4 border-b bg-white flex items-center justify-between">
-        <label htmlFor="ppt-upload">
-          <Button variant="outline">Upload PPT</Button>
-        </label>
+      <div className="p-4 bg-white border-b flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Visualizador de Imagem</h2>
+        <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+          <Upload className="w-4 h-4 mr-1" />
+          Upload Imagem
+        </Button>
         <input
-          id="ppt-upload"
+          ref={fileInputRef}
           type="file"
-          accept=".pptx"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setCurrentSlideIndex(currentSlideIndex - 1)}
-            disabled={currentSlideIndex === 0}
-            size="sm"
-            variant="outline"
-          >
-            <ChevronLeft />
-          </Button>
-          <span>{currentSlideIndex + 1} / {slides.length}</span>
-          <Button
-            onClick={() => setCurrentSlideIndex(currentSlideIndex + 1)}
-            disabled={currentSlideIndex >= slides.length - 1}
-            size="sm"
-            variant="outline"
-          >
-            <ChevronRight />
-          </Button>
-        </div>
-      </div>
-      <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-100">
-        {slides[currentSlideIndex] ? (
-          <img src={slides[currentSlideIndex].url} alt={`Slide ${currentSlideIndex+1}`} />
-        ) : (
-          <p className="text-gray-500">Nenhum slide disponível.</p>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default PowerPointViewer;
+export default ImageViewer;
