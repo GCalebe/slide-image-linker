@@ -55,5 +55,3 @@ import React, { useRef } from 'react';
     </div>
   );
 };
-
-export default ImageViewer;
