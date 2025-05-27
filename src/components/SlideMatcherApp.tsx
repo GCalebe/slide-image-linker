@@ -1,36 +1,35 @@
-
 import React, { useEffect } from 'react';
 import PowerPointViewer from './PowerPointViewer';
 import ImageViewer from './ImageViewer';
 import AssociationPanel from './AssociationPanel';
 import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
-import { Card } from '@/components/ui/card';
+import { toast } from '@/components/ui/use-toast';
 
-const SlideMatcherApp = () => {
-  const { loadFromLocalStorage } = useSlideMatcherStore();
+const SlideMatcherApp: React.FC = () => {
+  const { currentPptxId, loadSlidesFromBackend } = useSlideMatcherStore();
 
   useEffect(() => {
-    // Load saved data on app start
-    loadFromLocalStorage();
-  }, [loadFromLocalStorage]);
+    const initLoad = async () => {
+      if (currentPptxId) {
+        try {
+          await loadSlidesFromBackend(currentPptxId);
+        } catch (error: any) {
+          console.error("Erro ao carregar slides:", error);
+          toast({ title: 'Erro', description: 'Falha ao carregar slides', variant: 'destructive' });
+        }
+      }
+    };
+    initLoad();
+  }, [currentPptxId, loadSlidesFromBackend]);
 
   return (
-    <div className="h-screen flex bg-gray-100">
-      {/* Left Column - PowerPoint Viewer */}
-      <div className="flex-1 min-w-0">
-        <Card className="h-full rounded-none border-0 border-r border-gray-200">
-          <PowerPointViewer />
-        </Card>
+    <div className="flex h-screen">
+      <div className="w-1/2 border-r">
+        <PowerPointViewer />
       </div>
-
-      {/* Right Column - Image Viewer */}
-      <div className="flex-1 min-w-0">
-        <Card className="h-full rounded-none border-0">
-          <ImageViewer />
-        </Card>
+      <div className="w-1/2 border-r">
+        <ImageViewer />
       </div>
-
-      {/* Association Panel - Collapsible Right Dock */}
       <AssociationPanel />
     </div>
   );

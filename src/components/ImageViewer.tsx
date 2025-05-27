@@ -1,4 +1,24 @@
 import React, { useRef } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, Upload, Image as ImageIcon } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
+import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
+
+const ImageViewer: React.FC = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    images,
+    currentImageIndex,
+    uploadImage,
+    setCurrentImageIndex,
+  } = useSlideMatcherStore();
+
+  const onDrop = async (files: File[]) => {
+    for (const file of files) {
+      try {
+        await uploadImage(file);
+      } catch {}
     }
   };
 
@@ -53,7 +73,5 @@ import React, { useRef } from 'react';
         </Button>
       </div>
     </div>
-  );
-};
-
+);
 export default ImageViewer;

@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
+import { toast } from '@/components/ui/use-toast';
 
 const PowerPointViewer: React.FC = () => {
   const {
@@ -13,7 +14,13 @@ const PowerPointViewer: React.FC = () => {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) await uploadPptx(file);
+    if (file) {
+      try {
+        await uploadPptx(file);
+      } catch {
+        // Error handled in store
+      }
+    }
   };
 
   return (
@@ -55,5 +62,7 @@ const PowerPointViewer: React.FC = () => {
         ) : (
           <p className="text-gray-500">Nenhum slide disponível.</p>
         )}
-        
+      </div>
+    </div>
+);
 export default PowerPointViewer;
