@@ -1,7 +1,4 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
 import { toast } from '@/components/ui/use-toast';
 
 const PowerPointViewer: React.FC = () => {
@@ -64,5 +61,7 @@ const PowerPointViewer: React.FC = () => {
         )}
       </div>
     </div>
-);
+  );
+};
+
 export default PowerPointViewer;
