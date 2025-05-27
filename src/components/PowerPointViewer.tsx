@@ -1,4 +1,27 @@
 import React from 'react';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useSlideMatcherStore } from '@/stores/slideMatcherStore';
+import { toast } from '@/components/ui/use-toast';
+
+const PowerPointViewer: React.FC = () => {
+  const {
+    slides,
+    currentSlideIndex,
+    uploadPptx,
+    setCurrentSlideIndex,
+  } = useSlideMatcherStore();
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        await uploadPptx(file);
+      } catch {
+        // Error handled in store
+      }
+    }
+  };
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
