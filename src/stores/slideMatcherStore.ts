@@ -1,4 +1,4 @@
-import create from 'zustand';
+import { create } from 'zustand';
 import { toast } from '@/components/ui/use-toast';
 
 interface Slide { url: string; meta: any[]; }
